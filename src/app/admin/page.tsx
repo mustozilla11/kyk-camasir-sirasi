@@ -17,9 +17,17 @@ import {
   Lock,
   Loader2,
   FileSpreadsheet,
+  Clock,
+  History,
 } from "lucide-react";
 import { APP_CONFIG } from "@/lib/config";
-import { formatTurkishDate, getIstanbulDate, formatDate } from "@/lib/date-utils";
+import {
+  formatTurkishDate,
+  getIstanbulDate,
+  formatDate,
+  formatIstanbulDateTime,
+  formatIstanbulTime,
+} from "@/lib/date-utils";
 import { Booking, Maintenance, SlotStatus } from "@/lib/types";
 
 export default function AdminPage() {
@@ -376,9 +384,14 @@ export default function AdminPage() {
                   }
                   if (s?.isBooked && s.bookingDetails) {
                     return (
-                      <td key={m} className="border border-black p-2 font-bold text-xs bg-slate-50">
+                      <td key={m} className="border border-black p-1.5 font-bold text-xs bg-slate-50">
                         <div>ODA: {s.bookingDetails.room}</div>
                         <div className="text-[10px] text-slate-700">YATAK: {s.bookingDetails.bed}</div>
+                        {s.bookingDetails.created_at && (
+                          <div className="text-[8px] font-normal text-slate-600 mt-0.5">
+                            Kayıt: {formatIstanbulTime(s.bookingDetails.created_at)}
+                          </div>
+                        )}
                       </td>
                     );
                   }
@@ -556,6 +569,12 @@ export default function AdminPage() {
                         <div className="text-xs font-bold text-red-700 mt-0.5">
                           {b.time_slot} • Makine #{b.machine_number}
                         </div>
+                        {b.created_at && (
+                          <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1 font-medium">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>Alındı: {formatIstanbulDateTime(b.created_at)}</span>
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => handleDeleteBooking(b.id)}
@@ -791,12 +810,20 @@ export default function AdminPage() {
                                     : "bg-red-50/80 border-red-200"
                                 }`}
                               >
-                                <span className="text-xs font-black text-slate-900">
+                                <span className="text-xs font-black text-slate-900 leading-tight">
                                   Oda {s.bookingDetails.room}
                                 </span>
-                                <span className="text-[11px] font-bold text-red-700">
+                                <span className="text-[11px] font-bold text-red-700 leading-tight">
                                   Yatak {s.bookingDetails.bed}
                                 </span>
+                                {s.bookingDetails.created_at && (
+                                  <span
+                                    className="text-[9px] text-slate-500 font-medium leading-none mt-0.5"
+                                    title={`Sıranın Alındığı An: ${formatIstanbulDateTime(s.bookingDetails.created_at)}`}
+                                  >
+                                    🕒 {formatIstanbulTime(s.bookingDetails.created_at)}
+                                  </span>
+                                )}
                                 <button
                                   onClick={() => handleDeleteBooking(s.bookingDetails!.id)}
                                   title="Bu sırayı iptal et / sil"
@@ -822,6 +849,94 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* 📋 GÜNÜN SIRA ALMA İŞLEM LOGLARI (ZAMAN ÇİZELGESİ) */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <History className="w-4 h-4 text-slate-700" />
+                  <span>Sıra Alma İşlem Logları ({formatTurkishDate(selectedDate)})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Öğrencilerin sırayı sisteme kaydettiği kesin tarih ve saniye logları (En yeniden en eskiye).
+                </p>
+              </div>
+
+              <div className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl">
+                Toplam Kayıt: <span className="text-slate-900 font-extrabold">{bookingsList.length}</span>
+              </div>
+            </div>
+
+            {bookingsList.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                Bu gün için henüz kaydedilmiş bir çamaşır sırası bulunmuyor.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-2.5 px-3">Sıranın Alındığı An (Log Saati)</th>
+                      <th className="py-2.5 px-3">Kat & Oda / Yatak</th>
+                      <th className="py-2.5 px-3">Randevu Saati</th>
+                      <th className="py-2.5 px-3">Makine</th>
+                      <th className="py-2.5 px-3 text-right">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {[...bookingsList]
+                      .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+                      .map((b) => {
+                        const isHealth = APP_CONFIG.healthInternMachines.includes(b.machine_number);
+                        return (
+                          <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-800">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{formatIstanbulDateTime(b.created_at)}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-extrabold text-slate-900">
+                                {b.floor}. Kat, Oda {b.room}
+                              </span>
+                              <span className="text-red-700 font-bold ml-1.5 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded text-[10px]">
+                                Yatak #{b.bed}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-700">
+                              {b.time_slot}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`font-bold px-2 py-0.5 rounded text-[10px] ${
+                                  isHealth
+                                    ? "bg-cyan-100 text-cyan-900 border border-cyan-200"
+                                    : "bg-slate-100 text-slate-800"
+                                }`}
+                              >
+                                Makine #{b.machine_number} {isHealth ? "(Sağlık/Stajyer)" : ""}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <button
+                                onClick={() => handleDeleteBooking(b.id)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors cursor-pointer"
+                                title="Sırayı sil"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Sil</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </main>
       </div>

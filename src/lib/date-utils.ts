@@ -140,6 +140,48 @@ export function getSuggestedMonthlyPin(): string {
 }
 
 /**
+ * Formats an ISO string or timestamp to Istanbul date and time:
+ * e.g. "06.11.2026 18:24"
+ */
+export function formatIstanbulDateTime(isoString?: string): string {
+  if (!isoString) return "-";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return String(isoString);
+    return d.toLocaleString("tr-TR", {
+      timeZone: "Europe/Istanbul",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch (e) {
+    return String(isoString);
+  }
+}
+
+/**
+ * Formats an ISO string to short Istanbul time:
+ * e.g. "18:24"
+ */
+export function formatIstanbulTime(isoString?: string): string {
+  if (!isoString) return "-";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return String(isoString);
+    return d.toLocaleTimeString("tr-TR", {
+      timeZone: "Europe/Istanbul",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch (e) {
+    return String(isoString);
+  }
+}
+
+/**
  * Generates an easy-to-read 6-character cancel code (e.g. "K7A9X2")
  */
 export function generateCancelCode(): string {
