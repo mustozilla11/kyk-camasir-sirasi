@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Oda ${cleanRoom}, Yatak ${bedNum} için sistemde zaten 2 aktif randevunuz bulunmaktadır: [${activeSummary}]. Yeni sıra alabilmek için bu sıralardan birinin tamamlanmasını bekleyin veya 'Sıramı İptal Et' menüsünden iptal edin.`,
+          error: `Oda ${cleanRoom}, Yatak ${bedNum} için sistemde zaten 2 aktif randevunuz bulunmaktadır: [${activeSummary}]. Alınan sıralar iptal edilemez; yeni sıra alabilmek için mevcut sıranızın tamamlanmasını bekleyiniz.`,
         },
         { status: 400 }
       );
@@ -228,7 +228,6 @@ export async function POST(request: NextRequest) {
 
     // 8. Sıra oluşturma
     const bookingId = crypto.randomUUID();
-    const cancelCode = generateCancelCode();
     const newBooking = {
       id: bookingId,
       booking_date,
@@ -237,7 +236,7 @@ export async function POST(request: NextRequest) {
       floor: floorNum,
       room: cleanRoom,
       bed: bedNum,
-      cancel_code: cancelCode,
+      cancel_code: "",
       created_at: new Date().toISOString(),
     };
 
@@ -254,7 +253,7 @@ export async function POST(request: NextRequest) {
         floor: newBooking.floor,
         room: newBooking.room,
         bed: newBooking.bed,
-        cancel_code: newBooking.cancel_code,
+        isHealthInternMachine: APP_CONFIG.healthInternMachines.includes(newBooking.machine_number),
       },
     });
   } catch (error: any) {

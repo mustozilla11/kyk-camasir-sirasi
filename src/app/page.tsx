@@ -6,7 +6,6 @@ import { DateSelector } from "@/components/DateSelector";
 import { SlotGrid } from "@/components/SlotGrid";
 import { BookingModal } from "@/components/BookingModal";
 import { BookingSuccessModal } from "@/components/BookingSuccessModal";
-import { CancelModal } from "@/components/CancelModal";
 import { SlotStatus } from "@/lib/types";
 import { getSelectableDays, getIstanbulDate, formatDate } from "@/lib/date-utils";
 import { Loader2, RefreshCw, ShieldCheck, Info } from "lucide-react";
@@ -20,7 +19,7 @@ export default function HomePage() {
   const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
 
-  // Modals state
+  // Modal states
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedSlotForBooking, setSelectedSlotForBooking] = useState<{
     timeSlot: string;
@@ -28,7 +27,6 @@ export default function HomePage() {
   } | null>(null);
 
   const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   // Initialize selectable days
   useEffect(() => {
@@ -76,21 +74,15 @@ export default function HomePage() {
   const handleBookingSuccess = (booking: any) => {
     setIsBookingOpen(false);
     setConfirmedBooking(booking);
-    // Refresh slots
-    loadSlots(selectedDate);
-  };
-
-  const handleCancelSuccess = () => {
-    // Refresh slots
     loadSlots(selectedDate);
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100/70">
-      <Header onOpenCancelModal={() => setIsCancelModalOpen(true)} />
+      <Header />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Hızlı Bilgilendirme Kartı */}
+        {/* Bilgilendirme Kartı */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/80 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="p-2.5 rounded-xl bg-red-50 text-red-700 flex-shrink-0">
@@ -98,12 +90,12 @@ export default function HomePage() {
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-slate-900">
-                Nasıl Sıra Alınır?
+                Çamaşır Sırası Nasıl Alınır?
               </h2>
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                1. Aşağıdaki takvimden günü seçin. &nbsp;•&nbsp; 
-                2. İstediğiniz saatteki boş çamaşır makinesine tıklayın. &nbsp;•&nbsp; 
-                3. Kat, Oda ve Yatak numaranızı seçerek sıranızı onaylayın.
+                1. Günü seçin. &nbsp;•&nbsp; 
+                2. Boş bir makineye tıklayın (Makine #7 ve #8 Stajyer/Sağlık öğrencilerine ayrılmıştır). &nbsp;•&nbsp; 
+                3. Kat, Oda ve Yatak numaranızı girerek sıranızı kesinleştirin.
               </p>
             </div>
           </div>
@@ -126,7 +118,7 @@ export default function HomePage() {
           availableCount={availableSlotsCount}
         />
 
-        {/* Slot Tablosu veya Yükleniyor Göstergesi */}
+        {/* Slot Tablosu */}
         {isLoadingSlots ? (
           <div className="bg-white rounded-2xl p-16 shadow-xs border border-slate-200 flex flex-col items-center justify-center text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-red-600 mb-2" />
@@ -156,7 +148,7 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Booking Modal */}
       {selectedSlotForBooking && (
         <BookingModal
           isOpen={isBookingOpen}
@@ -168,18 +160,13 @@ export default function HomePage() {
         />
       )}
 
+      {/* Success Modal */}
       {confirmedBooking && (
         <BookingSuccessModal
           booking={confirmedBooking}
           onClose={() => setConfirmedBooking(null)}
         />
       )}
-
-      <CancelModal
-        isOpen={isCancelModalOpen}
-        onClose={() => setIsCancelModalOpen(false)}
-        onSuccess={handleCancelSuccess}
-      />
     </div>
   );
 }

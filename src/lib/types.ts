@@ -6,7 +6,7 @@ export interface Booking {
   floor: number; // 1-3
   room: string; // e.g. "2116"
   bed: number; // 1-5
-  cancel_code: string;
+  cancel_code?: string;
   created_at: string;
 }
 
@@ -25,6 +25,7 @@ export interface SlotStatus {
   isMaintenance: boolean;
   maintenanceReason?: string;
   isPast: boolean;
+  isHealthInternMachine: boolean; // Makine 7 ve 8 için true
   // Sadece admin görebilir:
   bookingDetails?: {
     floor: number;

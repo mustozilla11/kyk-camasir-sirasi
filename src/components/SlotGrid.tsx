@@ -3,7 +3,7 @@
 import React from "react";
 import { SlotStatus } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/config";
-import { Lock, Wrench, Clock, CheckCircle2, User, Trash2 } from "lucide-react";
+import { Lock, Wrench, Clock, CheckCircle2, Stethoscope, Trash2 } from "lucide-react";
 
 interface SlotGridProps {
   slots: SlotStatus[];
@@ -41,7 +41,7 @@ export function SlotGrid({
     );
   }
 
-  // Create a 2D lookup map: `${time_slot}_${machine_number}` -> SlotStatus
+  // Create lookup map: `${time_slot}_${machine_number}`
   const slotMap = new Map<string, SlotStatus>();
   for (const s of slots) {
     slotMap.set(`${s.time_slot}_${s.machine_number}`, s);
@@ -56,7 +56,7 @@ export function SlotGrid({
             Makineler ve Saat Tablosu
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Müsait bir slot seçerek oda ve yatak bilginizle sıranızı kaydedebilirsiniz.
+            Müsait bir makine ve saat seçerek oda/yatak numaranızla sıra alabilirsiniz.
           </p>
         </div>
 
@@ -64,7 +64,11 @@ export function SlotGrid({
         <div className="flex items-center gap-3 text-xs flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-400"></span>
-            <span className="text-slate-600">Müsait</span>
+            <span className="text-slate-600 font-medium">Genel Müsait</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-cyan-100 border border-cyan-400"></span>
+            <span className="text-cyan-800 font-bold">Stajyer/Sağlık (#7-#8)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-slate-200 border border-slate-300"></span>
@@ -72,34 +76,51 @@ export function SlotGrid({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>
-            <span className="text-slate-600">Arızalı / Bakım</span>
+            <span className="text-slate-600">Arızalı</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></span>
-            <span className="text-slate-400">Geçmiş</span>
+            <span className="text-slate-400">Geçti</span>
           </div>
         </div>
       </div>
 
       {/* Yatay kaydırılabilir tablo */}
       <div className="overflow-x-auto pb-2 -mx-4 sm:mx-0 px-4 sm:px-0">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        <table className="w-full min-w-[780px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200">
               <th className="py-2.5 px-3 text-left font-semibold text-slate-500 text-xs w-28 bg-slate-50/70 rounded-l-lg">
                 Saat Dilimi
               </th>
-              {APP_CONFIG.machineNumbers.map((m) => (
-                <th
-                  key={m}
-                  className="py-2.5 px-2 text-center font-bold text-slate-700 text-xs sm:text-sm bg-slate-50/70"
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase font-normal text-slate-400">Makine</span>
-                    <span className="font-extrabold text-slate-800">#{m}</span>
-                  </div>
-                </th>
-              ))}
+              {APP_CONFIG.machineNumbers.map((m) => {
+                const isHealth = APP_CONFIG.healthInternMachines.includes(m);
+                return (
+                  <th
+                    key={m}
+                    className={`py-2 px-2 text-center text-xs transition-colors ${
+                      isHealth
+                        ? "bg-cyan-50/90 border-x border-cyan-200/60"
+                        : "bg-slate-50/70"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      {isHealth ? (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-tight text-cyan-800 bg-cyan-100/90 px-1 py-0.2 rounded mb-0.5">
+                          <Stethoscope className="w-2.5 h-2.5" /> Staj/Sağlık
+                        </span>
+                      ) : (
+                        <span className="text-[10px] uppercase font-normal text-slate-400">
+                          Genel
+                        </span>
+                      )}
+                      <span className={`font-black ${isHealth ? "text-cyan-950 text-sm" : "text-slate-800 text-sm"}`}>
+                        Makine #{m}
+                      </span>
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -117,6 +138,7 @@ export function SlotGrid({
                 {APP_CONFIG.machineNumbers.map((machineNumber) => {
                   const key = `${timeSlot}_${machineNumber}`;
                   const slot = slotMap.get(key);
+                  const isHealth = APP_CONFIG.healthInternMachines.includes(machineNumber);
 
                   if (!slot) {
                     return <td key={machineNumber} className="p-1"></td>;
@@ -145,12 +167,12 @@ export function SlotGrid({
                       <td key={machineNumber} className="p-1.5">
                         <div className="w-full h-14 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center p-1 text-center relative select-none">
                           {isAdmin && slot.bookingDetails ? (
-                            // Yalnızca Admin Görünümü: Oda ve Yatak bilgisi
+                            // Yalnızca Görevli Görünümü: Oda ve Yatak bilgisi
                             <div className="flex flex-col items-center justify-center w-full">
-                              <span className="text-[11px] font-black text-slate-800">
+                              <span className="text-[11px] font-black text-slate-900">
                                 Oda {slot.bookingDetails.room}
                               </span>
-                              <span className="text-[10px] font-semibold text-red-600">
+                              <span className="text-[10px] font-bold text-red-700">
                                 Yatak {slot.bookingDetails.bed}
                               </span>
                               {onAdminDeleteBooking && (
@@ -159,7 +181,7 @@ export function SlotGrid({
                                     e.stopPropagation();
                                     onAdminDeleteBooking(slot.bookingDetails!.id);
                                   }}
-                                  title="Bu sırayı iptal et"
+                                  title="Bu sırayı sil"
                                   className="absolute top-1 right-1 p-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -199,9 +221,17 @@ export function SlotGrid({
                     <td key={machineNumber} className="p-1.5">
                       <button
                         onClick={() => onSelectSlot(timeSlot, machineNumber)}
-                        className="w-full h-14 rounded-xl bg-emerald-50/60 hover:bg-emerald-600 border border-emerald-300 hover:border-emerald-600 text-emerald-800 hover:text-white flex flex-col items-center justify-center p-1 transition-all duration-150 shadow-xs hover:shadow-md hover:scale-[1.03] cursor-pointer group"
+                        className={`w-full h-14 rounded-xl border flex flex-col items-center justify-center p-1 transition-all duration-150 shadow-xs hover:shadow-md hover:scale-[1.03] cursor-pointer group ${
+                          isHealth
+                            ? "bg-cyan-50/70 hover:bg-cyan-600 border-cyan-300 hover:border-cyan-600 text-cyan-900 hover:text-white"
+                            : "bg-emerald-50/60 hover:bg-emerald-600 border-emerald-300 hover:border-emerald-600 text-emerald-800 hover:text-white"
+                        }`}
                       >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 group-hover:text-white mb-0.5 transition-colors" />
+                        <CheckCircle2
+                          className={`w-4 h-4 mb-0.5 transition-colors group-hover:text-white ${
+                            isHealth ? "text-cyan-700" : "text-emerald-600"
+                          }`}
+                        />
                         <span className="text-[11px] font-bold group-hover:text-white">
                           Sıra Al
                         </span>

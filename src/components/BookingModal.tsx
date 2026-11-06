@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, ShieldAlert, Check, Loader2, Sparkles } from "lucide-react";
+import { X, ShieldAlert, Check, Loader2, Sparkles, Stethoscope, AlertCircle } from "lucide-react";
 import { APP_CONFIG } from "@/lib/config";
 import { formatTurkishDate } from "@/lib/date-utils";
 
@@ -30,10 +30,10 @@ export function BookingModal({
 
   if (!isOpen) return null;
 
-  // Kat değiştiğinde örnek oda numarasını uyarla
+  const isHealthInternMachine = APP_CONFIG.healthInternMachines.includes(machineNumber);
+
   const handleFloorChange = (newFloor: number) => {
     setFloor(newFloor);
-    // Otomatik oda başlangıcını güncelle
     if (room.length >= 2) {
       setRoom(`${newFloor}${room.slice(1)}`);
     } else {
@@ -82,7 +82,6 @@ export function BookingModal({
         return;
       }
 
-      // Success
       setIsLoading(false);
       onSuccess(data.booking);
     } catch (err: any) {
@@ -96,36 +95,67 @@ export function BookingModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Başlık */}
-        <div className="bg-gradient-to-r from-red-700 to-red-800 text-white px-6 py-4 flex items-center justify-between">
+        <div
+          className={`text-white px-6 py-4 flex items-center justify-between ${
+            isHealthInternMachine
+              ? "bg-gradient-to-r from-cyan-700 to-blue-800"
+              : "bg-gradient-to-r from-red-700 to-red-800"
+          }`}
+        >
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-red-200">
-              Sıra Alma Onayı
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-200">
+                Sıra Alma Onayı
+              </span>
+              {isHealthInternMachine && (
+                <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded font-bold">
+                  Stajyer & Sağlık
+                </span>
+              )}
+            </div>
             <h3 className="text-lg font-extrabold">Çamaşır Sırası Al</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-red-100 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Seçili Slot Özeti */}
-        <div className="bg-red-50/70 border-b border-red-100 px-6 py-3 flex items-center justify-between text-xs text-red-950 font-medium">
+        <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-3 flex items-center justify-between text-xs text-slate-800 font-medium">
           <div>
-            <span className="text-slate-500 block text-[10px]">TARİH</span>
+            <span className="text-slate-400 block text-[10px]">TARİH</span>
             <span className="font-bold">{formatTurkishDate(selectedDate)}</span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px]">SAAT</span>
+            <span className="text-slate-400 block text-[10px]">SAAT</span>
             <span className="font-bold">{timeSlot}</span>
           </div>
           <div className="text-right">
-            <span className="text-slate-500 block text-[10px]">MAKİNE</span>
-            <span className="font-extrabold text-red-700 text-sm">Makine #{machineNumber}</span>
+            <span className="text-slate-400 block text-[10px]">MAKİNE</span>
+            <span
+              className={`font-black text-sm ${
+                isHealthInternMachine ? "text-cyan-800" : "text-red-700"
+              }`}
+            >
+              Makine #{machineNumber}
+            </span>
           </div>
         </div>
+
+        {/* Stajyer & Sağlık Özel Uyarısı */}
+        {isHealthInternMachine && (
+          <div className="bg-cyan-50 border-b border-cyan-200 px-6 py-2.5 text-xs text-cyan-950 flex items-start gap-2">
+            <Stethoscope className="w-4 h-4 text-cyan-700 flex-shrink-0 mt-0.5" />
+            <div className="text-[11px] leading-snug">
+              <span className="font-bold text-cyan-900">Stajyer / Sağlık Makinesi: </span>
+              Bu makine sağlık öğrencilerine ve stajyerlere ayrılmıştır. Çamaşır tesliminde 
+              <strong> yurt görevlisi öğrenci/staj kimliğinizi kontrol edecektir.</strong>
+            </div>
+          </div>
+        )}
 
         {/* Form Alanı */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -149,7 +179,7 @@ export function BookingModal({
                   onClick={() => handleFloorChange(f)}
                   className={`py-2 px-3 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                     floor === f
-                      ? "bg-red-700 text-white border-red-700 shadow-xs"
+                      ? "bg-slate-900 text-white border-slate-900 shadow-xs"
                       : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
@@ -169,7 +199,7 @@ export function BookingModal({
               value={room}
               onChange={(e) => setRoom(e.target.value)}
               placeholder={`Örn: ${floor}116, ${floor}105`}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600/30 focus:border-red-600 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-600 transition-all"
               required
             />
             <span className="text-[11px] text-slate-400 mt-1 block">
@@ -201,13 +231,14 @@ export function BookingModal({
           </div>
 
           {/* Gizlilik & Kural Hatırlatması */}
-          <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/70 text-[11px] text-slate-600 space-y-1">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Önemli Kurallar:</span>
+          <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200 text-[11px] text-amber-900 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-950">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+              <span>Önemli Bilgilendirme:</span>
             </div>
-            <p>• Bu yatak için son 7 günde en fazla 2 sıra alınabilir.</p>
-            <p>• Ad, soyad, telefon veya TC gibi kişisel veriler sistemde tutulmaz.</p>
+            <p>• <strong>Alınan sıra iptal edilemez.</strong> Lütfen gelebileceğiniz saati seçiniz.</p>
+            <p>• Aynı yatak için 7 günde en fazla 2 sıra alınabilir.</p>
+            <p>• Sistemde ad, soyad, telefon veya TC bilgisi tutulmaz.</p>
           </div>
 
           {/* Aksiyon Butonları */}
@@ -223,7 +254,11 @@ export function BookingModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-2/3 py-2.5 rounded-xl bg-red-700 hover:bg-red-800 text-white font-bold text-xs tracking-wide shadow-md shadow-red-700/20 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              className={`w-2/3 py-2.5 rounded-xl text-white font-bold text-xs tracking-wide shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer ${
+                isHealthInternMachine
+                  ? "bg-cyan-700 hover:bg-cyan-800 shadow-cyan-700/20"
+                  : "bg-red-700 hover:bg-red-800 shadow-red-700/20"
+              }`}
             >
               {isLoading ? (
                 <>
@@ -233,7 +268,7 @@ export function BookingModal({
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Sırayı Onayla</span>
+                  <span>Sırayı Kesinleştir</span>
                 </>
               )}
             </button>

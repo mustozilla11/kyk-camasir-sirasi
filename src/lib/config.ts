@@ -2,6 +2,9 @@ export const APP_CONFIG = {
   appName: "GSB KYK Yurdu Çamaşırhane Sıra Sistemi",
   totalMachines: 8,
   machineNumbers: [1, 2, 3, 4, 5, 6, 7, 8],
+  // Makinelerin türleri: 1-6 Genel, 7-8 Stajyer ve Sağlık Öğrencileri
+  regularMachines: [1, 2, 3, 4, 5, 6],
+  healthInternMachines: [7, 8],
   floors: [1, 2, 3],
   bedsPerRoom: [1, 2, 3, 4, 5],
   maxBookingsPerBedIn7Days: 2,

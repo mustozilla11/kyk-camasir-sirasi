@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
           isMaintenance,
           maintenanceReason: isDateClosed ? dateCloseReason : maintenanceReason,
           isPast,
+          isHealthInternMachine: APP_CONFIG.healthInternMachines.includes(machineNumber),
         };
 
         // Eğer admin ise oda/yatak bilgisini ekle, DEĞİLSE ASLA EKLEME (KVKK / Gizlilik)

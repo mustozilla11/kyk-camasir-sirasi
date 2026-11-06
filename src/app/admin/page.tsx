@@ -303,11 +303,19 @@ export default function AdminPage() {
           <thead>
             <tr className="bg-slate-200 font-bold border-b border-black">
               <th className="border border-black p-2 w-28">SAAT DİLİMİ</th>
-              {APP_CONFIG.machineNumbers.map((m) => (
-                <th key={m} className="border border-black p-2">
-                  MAKİNE #{m}
-                </th>
-              ))}
+              {APP_CONFIG.machineNumbers.map((m) => {
+                const isHealth = APP_CONFIG.healthInternMachines.includes(m);
+                return (
+                  <th key={m} className={`border border-black p-2 ${isHealth ? "bg-slate-300" : ""}`}>
+                    <div>MAKİNE #{m}</div>
+                    {isHealth && (
+                      <div className="text-[8px] font-black tracking-tighter text-black uppercase">
+                        STAJYER / SAĞLIK
+                      </div>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -346,13 +354,14 @@ export default function AdminPage() {
 
         {/* İmza ve Tutanak Alanı */}
         <div className="mt-8 flex justify-between items-end text-xs font-semibold px-4">
-          <div>
-            <p>Not: Öğrenciler yatak ve oda numaralarını söyleyerek çamaşırlarını teslim eder.</p>
-            <p className="text-slate-500 text-[10px] mt-1">Sistem tarafından otomatik üretilmiştir.</p>
+          <div className="space-y-1">
+            <p className="font-bold">• Görevli Talimatı: Öğrenciler sadece Kat, Oda ve Yatak numarasını beyan eder; bu dökümandan teyit edilerek makine teslim edilir.</p>
+            <p className="text-slate-800">• <strong>Makine #7 ve #8:</strong> Stajyer ve sağlık öğrencilerine aittir. Görevli teslimde öğrenci/staj kimliğini kontrol eder.</p>
+            <p className="text-slate-500 text-[10px]">T.C. GSB KYK Yurdu Çamaşırhane Sistemi tarafından üretilmiştir.</p>
           </div>
           <div className="text-center w-60 border-t border-black pt-2">
-            <div>Nöbetçi Yurt Memuru / Görevli</div>
-            <div className="text-slate-400 text-[10px] mt-1">Ad, Soyad ve İmza</div>
+            <div>Nöbetçi Yurt Görevlisi</div>
+            <div className="text-slate-500 text-[10px] mt-1">Ad, Soyad ve İmza</div>
           </div>
         </div>
       </div>
@@ -617,11 +626,28 @@ export default function AdminPage() {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="py-2.5 px-3 text-left font-bold text-slate-500 w-28">Saat</th>
-                    {APP_CONFIG.machineNumbers.map((m) => (
-                      <th key={m} className="py-2.5 px-2 text-center font-black text-slate-800">
-                        Makine #{m}
-                      </th>
-                    ))}
+                    {APP_CONFIG.machineNumbers.map((m) => {
+                      const isHealth = APP_CONFIG.healthInternMachines.includes(m);
+                      return (
+                        <th
+                          key={m}
+                          className={`py-2 px-2 text-center ${
+                            isHealth ? "bg-cyan-50/80 border-x border-cyan-200" : ""
+                          }`}
+                        >
+                          <div className="flex flex-col items-center">
+                            {isHealth && (
+                              <span className="text-[9px] font-extrabold text-cyan-800 bg-cyan-100 px-1 py-0.2 rounded mb-0.5">
+                                Stajyer/Sağlık
+                              </span>
+                            )}
+                            <span className="font-black text-slate-800">
+                              Makine #{m}
+                            </span>
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
