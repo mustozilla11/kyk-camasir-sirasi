@@ -8,6 +8,7 @@ import {
   isWeekend,
   isSlotPast,
   generateCancelCode,
+  formatTurkishDate,
 } from "@/lib/date-utils";
 import crypto from "crypto";
 
@@ -210,13 +211,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Yatak Başına 7 Günde Maksimum 2 Sıra Hakkı Kontrolü
-    const activeCount = await db.countActiveBookingsForBed(cleanRoom, bedNum, booking_date);
-    if (activeCount >= APP_CONFIG.maxBookingsPerBedIn7Days) {
+    // 7. Yatak Başına Aktif Randevu Kontrolü (En fazla 2 aktif randevu)
+    const activeBookings = await db.getActiveBookingsForBed(cleanRoom, bedNum);
+    if (activeBookings.length >= APP_CONFIG.maxBookingsPerBedIn7Days) {
+      const activeSummary = activeBookings
+        .map((b) => `${formatTurkishDate(b.booking_date)} ${b.time_slot} (Makine #${b.machine_number})`)
+        .join(" ve ");
       return NextResponse.json(
         {
           success: false,
-          error: `Oda ${cleanRoom}, Yatak ${bedNum} için 7 günlük dönemde maksimum 2 sıra alma hakkı dolmuştur. Sıra alabilmek için mevcut sıranızın geçmesini bekleyin veya gereksiz sıranızı iptal edin.`,
+          error: `Oda ${cleanRoom}, Yatak ${bedNum} için sistemde zaten 2 aktif randevunuz bulunmaktadır: [${activeSummary}]. Yeni sıra alabilmek için bu sıralardan birinin tamamlanmasını bekleyin veya 'Sıramı İptal Et' menüsünden iptal edin.`,
         },
         { status: 400 }
       );

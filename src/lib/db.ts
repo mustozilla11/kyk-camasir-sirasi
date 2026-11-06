@@ -1,6 +1,7 @@
 import { Booking, Maintenance } from "./types";
 import path from "path";
 import fs from "fs";
+import { getIstanbulDate, formatDate, isSlotPast } from "./date-utils";
 
 // Database adapter interface
 interface DbAdapter {
@@ -8,7 +9,7 @@ interface DbAdapter {
   getBookingsForDate(date: string): Promise<Booking[]>;
   getBookingById(id: string): Promise<Booking | null>;
   findBooking(date: string, timeSlot: string, machineNumber: number): Promise<Booking | null>;
-  countActiveBookingsForBed(room: string, bed: number, targetDate: string): Promise<number>;
+  getActiveBookingsForBed(room: string, bed: number): Promise<Booking[]>;
   createBooking(booking: Booking): Promise<Booking>;
   deleteBooking(id: string): Promise<boolean>;
   deleteBookingWithCode(room: string, bed: number, cancelCode: string): Promise<Booking | null>;
@@ -103,18 +104,18 @@ class PostgresAdapter implements DbAdapter {
     return rows.length > 0 ? mapBookingRow(rows[0]) : null;
   }
 
-  async countActiveBookingsForBed(room: string, bed: number, targetDate: string): Promise<number> {
+  async getActiveBookingsForBed(room: string, bed: number): Promise<Booking[]> {
     const sql = await this.getSql();
-    // 7 günlük kayan pencere kontrolü: targetDate - 3 gün ile targetDate + 3 gün arası
-    // Veya istenen tarihin son 7 takvim günü ve sonraki günleri içerecek şekilde
+    const todayStr = formatDate(getIstanbulDate());
     const rows = await sql`
-      SELECT COUNT(*) as count FROM bookings
+      SELECT * FROM bookings
       WHERE room = ${room}
         AND bed = ${bed}
-        AND booking_date >= TO_CHAR(TO_DATE(${targetDate}, 'YYYY-MM-DD') - INTERVAL '6 days', 'YYYY-MM-DD')
-        AND booking_date <= TO_CHAR(TO_DATE(${targetDate}, 'YYYY-MM-DD') + INTERVAL '6 days', 'YYYY-MM-DD')
+        AND booking_date >= ${todayStr}
+      ORDER BY booking_date ASC, time_slot ASC
     `;
-    return Number(rows[0]?.count || 0);
+    const bookings = rows.map(mapBookingRow);
+    return bookings.filter((b: Booking) => !isSlotPast(b.booking_date, b.time_slot));
   }
 
   async createBooking(booking: Booking): Promise<Booking> {
@@ -294,19 +295,20 @@ class SqliteAdapter implements DbAdapter {
     return row ? mapBookingRow(row) : null;
   }
 
-  async countActiveBookingsForBed(room: string, bed: number, targetDate: string): Promise<number> {
+  async getActiveBookingsForBed(room: string, bed: number): Promise<Booking[]> {
     const db = this.getDb();
-    // SQLite date calculations
-    const row = db
+    const todayStr = formatDate(getIstanbulDate());
+    const rows = db
       .prepare(`
-        SELECT COUNT(*) as count FROM bookings
+        SELECT * FROM bookings
         WHERE room = ? 
           AND bed = ? 
-          AND booking_date >= date(?, '-6 days')
-          AND booking_date <= date(?, '+6 days')
+          AND booking_date >= ?
+        ORDER BY booking_date ASC, time_slot ASC
       `)
-      .get(room, bed, targetDate, targetDate);
-    return Number(row?.count || 0);
+      .all(room, bed, todayStr);
+    const bookings = rows.map(mapBookingRow);
+    return bookings.filter((b: Booking) => !isSlotPast(b.booking_date, b.time_slot));
   }
 
   async createBooking(booking: Booking): Promise<Booking> {

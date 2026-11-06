@@ -87,7 +87,8 @@ export function getSelectableDays(advanceDays = APP_CONFIG.maxAdvanceDays): Arra
 
 /**
  * Checks if a time slot has already passed for a given date.
- * E.g. If date is today, and slot is "13:30 - 14:30", and current time is 14:00 or 15:00.
+ * Allows booking ongoing slots as long as there is enough time left to wash (up to 20 mins before slot ends).
+ * E.g. For "18:30 - 19:30", student can book at 18:30, 18:45, up until 19:10!
  */
 export function isSlotPast(dateStr: string, timeSlot: string): boolean {
   const today = getIstanbulDate();
@@ -101,16 +102,24 @@ export function isSlotPast(dateStr: string, timeSlot: string): boolean {
     return false; // Future day
   }
 
-  // Same day: check hour and minute
-  // timeSlot format: "13:30 - 14:30"
-  const startPart = timeSlot.split("-")[0].trim(); // "13:30"
-  const [slotHour, slotMin] = startPart.split(":").map(Number);
+  // Same day: check based on slot end time minus 20 minutes buffer
+  const parts = timeSlot.split("-");
+  const endPart = (parts[1] || parts[0]).trim(); // "19:30"
+  const [endHour, endMin] = endPart.split(":").map(Number);
+
+  // Cutoff is 20 minutes before the slot ends
+  let cutoffHour = endHour;
+  let cutoffMin = endMin - 20;
+  if (cutoffMin < 0) {
+    cutoffHour -= 1;
+    cutoffMin += 60;
+  }
 
   const currentHour = today.getHours();
   const currentMin = today.getMinutes();
 
-  if (currentHour > slotHour) return true;
-  if (currentHour === slotHour && currentMin >= slotMin) return true;
+  if (currentHour > cutoffHour) return true;
+  if (currentHour === cutoffHour && currentMin >= cutoffMin) return true;
 
   return false;
 }

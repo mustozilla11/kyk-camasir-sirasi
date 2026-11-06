@@ -110,4 +110,9 @@ print(f"10. Admin Teyit Masası: Oda={details.get('room')}, Yatak={details.get('
 status, search_res = req("http://localhost:3456/api/admin/bookings?query=2116-3")
 print(f"11. Görevli Arama '2116-3': HTTP {status}, Bulunan kayıt: {search_res.get('count')} adet")
 
+# 12. Test verilerini temizle (Veritabanını kullanıcı için tertemiz bırak)
+for b in search_res.get("bookings", []):
+    del_status, _ = req(f"http://localhost:3456/api/admin/bookings/{b['id']}", method="DELETE")
+print("12. Test verileri başarıyla temizlendi, veritabanı tertemiz bırakıldı.")
+
 print("--- TÜM TESTLER BAŞARIYLA TAMAMLANDI! ---")
