@@ -3,7 +3,7 @@
 import React from "react";
 import { SlotStatus } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/config";
-import { Lock, Wrench, Clock, CheckCircle2, Stethoscope, Trash2 } from "lucide-react";
+import { Lock, Wrench, Clock, CheckCircle2, Stethoscope, Trash2, Sparkles } from "lucide-react";
 
 interface SlotGridProps {
   slots: SlotStatus[];
@@ -11,7 +11,9 @@ interface SlotGridProps {
   isDateClosed: boolean;
   dateCloseReason?: string;
   isAdmin?: boolean;
+  myBookings?: any[];
   onSelectSlot: (timeSlot: string, machineNumber: number) => void;
+  onViewMyBooking?: (booking: any) => void;
   onAdminDeleteBooking?: (bookingId: string) => void;
 }
 
@@ -21,7 +23,9 @@ export function SlotGrid({
   isDateClosed,
   dateCloseReason,
   isAdmin = false,
+  myBookings = [],
   onSelectSlot,
+  onViewMyBooking,
   onAdminDeleteBooking,
 }: SlotGridProps) {
   if (isDateClosed) {
@@ -47,6 +51,12 @@ export function SlotGrid({
     slotMap.set(`${s.time_slot}_${s.machine_number}`, s);
   }
 
+  // Create lookup for my own bookings: `${date}_${time_slot}_${machine_number}`
+  const myBookingMap = new Map<string, any>();
+  for (const b of myBookings) {
+    myBookingMap.set(`${b.booking_date}_${b.time_slot}_${b.machine_number}`, b);
+  }
+
   return (
     <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200/80 overflow-hidden">
       {/* Tablo Üst Başlık & Açıklamalar */}
@@ -63,6 +73,10 @@ export function SlotGrid({
         {/* Gösterge / Legend */}
         <div className="flex items-center gap-3 text-xs flex-wrap">
           <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-indigo-600 border border-indigo-700"></span>
+            <span className="text-indigo-900 font-bold">Senin Sıran</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-400"></span>
             <span className="text-slate-600 font-medium">Genel Müsait</span>
           </div>
@@ -77,10 +91,6 @@ export function SlotGrid({
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>
             <span className="text-slate-600">Arızalı</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></span>
-            <span className="text-slate-400">Geçti</span>
           </div>
         </div>
       </div>
@@ -161,7 +171,30 @@ export function SlotGrid({
                     );
                   }
 
-                  // 2. Dolu Durumu
+                  // 2. KULLANICININ KENDİ SIRASI ("SENİN SIRAN")
+                  // Sadece o kullanıcının cihazında özel görünür!
+                  const myBooking = myBookingMap.get(`${selectedDate}_${key}`);
+                  if (slot.isBooked && myBooking && !isAdmin) {
+                    return (
+                      <td key={machineNumber} className="p-1.5">
+                        <button
+                          onClick={() => onViewMyBooking && onViewMyBooking(myBooking)}
+                          title="Sıra detaylarınızı görmek için tıklayın"
+                          className="w-full h-14 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white border border-indigo-400/80 shadow-xs flex flex-col items-center justify-center p-1 text-center transition-all hover:scale-[1.03] cursor-pointer"
+                        >
+                          <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                            <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+                            <span>Senin Sıran</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-indigo-100">
+                            Oda {myBooking.room} (Yt.{myBooking.bed})
+                          </span>
+                        </button>
+                      </td>
+                    );
+                  }
+
+                  // 3. Dolu Durumu (Diğer Öğrenciler İçin)
                   if (slot.isBooked) {
                     return (
                       <td key={machineNumber} className="p-1.5">
@@ -189,7 +222,7 @@ export function SlotGrid({
                               )}
                             </div>
                           ) : (
-                            // Normal Öğrenci Görünümü: SADECE DOLU (Sıfır Kişisel Veri!)
+                            // Normal Öğrenci Görünümü: SADECE DOLU
                             <div className="flex flex-col items-center justify-center">
                               <Lock className="w-3.5 h-3.5 text-slate-400 mb-0.5" />
                               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -202,7 +235,7 @@ export function SlotGrid({
                     );
                   }
 
-                  // 3. Süresi Geçmiş Durum
+                  // 4. Süresi Geçmiş Durum
                   if (slot.isPast) {
                     return (
                       <td key={machineNumber} className="p-1.5">
@@ -216,7 +249,7 @@ export function SlotGrid({
                     );
                   }
 
-                  // 4. Müsait Durum (Öğrenci Tıklayabilir)
+                  // 5. Müsait Durum (Öğrenci Tıklayabilir)
                   return (
                     <td key={machineNumber} className="p-1.5">
                       <button

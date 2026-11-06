@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   ShieldAlert,
@@ -39,6 +39,19 @@ export function BookingModal({
   const [isHealthConfirmed, setIsHealthConfirmed] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Cihazda kayıtlı oda/yatak bilgisi varsa otomatik doldur
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("kyk_saved_room");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.floor) setFloor(Number(parsed.floor));
+        if (parsed.room) setRoom(String(parsed.room));
+        if (parsed.bed) setBed(Number(parsed.bed));
+      }
+    } catch (e) {}
+  }, []);
 
   if (!isOpen) return null;
 
