@@ -20,15 +20,14 @@ interface DbAdapter {
   cleanupOldBookings(daysThreshold?: number): Promise<number>;
 }
 
-// Check if we have Neon / Postgres DATABASE_URL
+// Check for Postgres (Neon / Vercel Postgres)
+const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const isPostgres = Boolean(
-  process.env.DATABASE_URL &&
-    (process.env.DATABASE_URL.startsWith("postgres://") ||
-      process.env.DATABASE_URL.startsWith("postgresql://"))
+  dbUrl && (dbUrl.startsWith("postgres://") || dbUrl.startsWith("postgresql://"))
 );
 
 // -------------------------------------------------------------
-// POSTGRES IMPLEMENTATION (NEON)
+// 1. POSTGRES IMPLEMENTATION (NEON / VERCEL POSTGRES)
 // -------------------------------------------------------------
 class PostgresAdapter implements DbAdapter {
   private sqlClient: any = null;
@@ -36,7 +35,7 @@ class PostgresAdapter implements DbAdapter {
   private async getSql() {
     if (!this.sqlClient) {
       const { neon } = await import("@neondatabase/serverless");
-      this.sqlClient = neon(process.env.DATABASE_URL!);
+      this.sqlClient = neon(dbUrl!);
     }
     return this.sqlClient;
   }
@@ -52,7 +51,7 @@ class PostgresAdapter implements DbAdapter {
         floor INT NOT NULL,
         room VARCHAR(32) NOT NULL,
         bed INT NOT NULL,
-        cancel_code VARCHAR(32) NOT NULL,
+        cancel_code VARCHAR(32) DEFAULT '',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT unique_slot UNIQUE (booking_date, time_slot, machine_number)
       );
@@ -69,12 +68,8 @@ class PostgresAdapter implements DbAdapter {
       );
     `;
 
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date);
-    `;
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_bookings_bed ON bookings(room, bed, booking_date);
-    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_bookings_bed ON bookings(room, bed, booking_date);`;
   }
 
   async getBookingsForDate(date: string): Promise<Booking[]> {
@@ -131,7 +126,7 @@ class PostgresAdapter implements DbAdapter {
         ${booking.floor},
         ${booking.room},
         ${booking.bed},
-        ${booking.cancel_code},
+        ${booking.cancel_code || ""},
         ${booking.created_at}
       )
     `;
@@ -146,7 +141,6 @@ class PostgresAdapter implements DbAdapter {
 
   async deleteBookingWithCode(room: string, bed: number, cancelCode: string): Promise<Booking | null> {
     const sql = await this.getSql();
-    // Normalize string compare
     const code = cancelCode.trim().toUpperCase();
     const rows = await sql`
       SELECT * FROM bookings 
@@ -222,7 +216,152 @@ class PostgresAdapter implements DbAdapter {
 }
 
 // -------------------------------------------------------------
-// SQLITE IMPLEMENTATION (LOCAL DEV & ZERO CONFIG)
+// 2. SERVERLESS JSON ADAPTER (VERCEL FALLBACK WHEN NO POSTGRES)
+// -------------------------------------------------------------
+class ServerlessJsonAdapter implements DbAdapter {
+  private filePath = path.join("/tmp", "kyk_store.json");
+
+  private readData(): { bookings: Booking[]; maintenances: Maintenance[] } {
+    try {
+      if (fs.existsSync(this.filePath)) {
+        return JSON.parse(fs.readFileSync(this.filePath, "utf-8"));
+      }
+    } catch (e) {}
+    return { bookings: [], maintenances: [] };
+  }
+
+  private writeData(data: { bookings: Booking[]; maintenances: Maintenance[] }) {
+    try {
+      fs.writeFileSync(this.filePath, JSON.stringify(data), "utf-8");
+    } catch (e) {
+      console.error("Write to /tmp error:", e);
+    }
+  }
+
+  async init(): Promise<void> {
+    const data = this.readData();
+    this.writeData(data);
+  }
+
+  async getBookingsForDate(date: string): Promise<Booking[]> {
+    const data = this.readData();
+    return data.bookings.filter((b) => b.booking_date === date);
+  }
+
+  async getBookingById(id: string): Promise<Booking | null> {
+    const data = this.readData();
+    return data.bookings.find((b) => b.id === id) || null;
+  }
+
+  async findBooking(date: string, timeSlot: string, machineNumber: number): Promise<Booking | null> {
+    const data = this.readData();
+    return (
+      data.bookings.find(
+        (b) =>
+          b.booking_date === date &&
+          b.time_slot === timeSlot &&
+          b.machine_number === machineNumber
+      ) || null
+    );
+  }
+
+  async getActiveBookingsForBed(room: string, bed: number): Promise<Booking[]> {
+    const data = this.readData();
+    const todayStr = formatDate(getIstanbulDate());
+    return data.bookings.filter(
+      (b) =>
+        b.room === room &&
+        b.bed === bed &&
+        b.booking_date >= todayStr &&
+        !isSlotPast(b.booking_date, b.time_slot)
+    );
+  }
+
+  async createBooking(booking: Booking): Promise<Booking> {
+    const data = this.readData();
+    const exists = data.bookings.some(
+      (b) =>
+        b.booking_date === booking.booking_date &&
+        b.time_slot === booking.time_slot &&
+        b.machine_number === booking.machine_number
+    );
+    if (exists) {
+      throw new Error("UNIQUE constraint failed");
+    }
+    data.bookings.push(booking);
+    this.writeData(data);
+    return booking;
+  }
+
+  async deleteBooking(id: string): Promise<boolean> {
+    const data = this.readData();
+    const initialLen = data.bookings.length;
+    data.bookings = data.bookings.filter((b) => b.id !== id);
+    this.writeData(data);
+    return data.bookings.length < initialLen;
+  }
+
+  async deleteBookingWithCode(room: string, bed: number, cancelCode: string): Promise<Booking | null> {
+    const data = this.readData();
+    const code = cancelCode.trim().toUpperCase();
+    const idx = data.bookings.findIndex(
+      (b) => b.room === room && b.bed === bed && (b.cancel_code || "").toUpperCase() === code
+    );
+    if (idx === -1) return null;
+    const deleted = data.bookings.splice(idx, 1)[0];
+    this.writeData(data);
+    return deleted;
+  }
+
+  async getMaintenances(): Promise<Maintenance[]> {
+    const data = this.readData();
+    return data.maintenances;
+  }
+
+  async addMaintenance(type: "machine" | "date", target: string, reason?: string): Promise<void> {
+    const data = this.readData();
+    data.maintenances = data.maintenances.filter((m) => !(m.type === type && m.target === target));
+    data.maintenances.push({
+      id: `${type}_${target}`,
+      type,
+      target,
+      reason: reason || "",
+      created_at: new Date().toISOString(),
+    });
+    this.writeData(data);
+  }
+
+  async removeMaintenance(type: "machine" | "date", target: string): Promise<void> {
+    const data = this.readData();
+    data.maintenances = data.maintenances.filter((m) => !(m.type === type && m.target === target));
+    this.writeData(data);
+  }
+
+  async searchBookings(query: string, date?: string): Promise<Booking[]> {
+    const data = this.readData();
+    const q = query.trim().toLowerCase();
+    return data.bookings.filter((b) => {
+      const matchRoom = b.room.toLowerCase().includes(q) || `${b.room}-${b.bed}`.includes(q);
+      if (!matchRoom) return false;
+      if (date) return b.booking_date === date;
+      return true;
+    });
+  }
+
+  async cleanupOldBookings(daysThreshold = 7): Promise<number> {
+    const data = this.readData();
+    const initialLen = data.bookings.length;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - daysThreshold);
+    const cutoffStr = formatDate(cutoff);
+    data.bookings = data.bookings.filter((b) => b.booking_date >= cutoffStr);
+    this.writeData(data);
+    return initialLen - data.bookings.length;
+  }
+}
+
+// -------------------------------------------------------------
+// 3. SQLITE IMPLEMENTATION (LOCAL DEV)
 // -------------------------------------------------------------
 class SqliteAdapter implements DbAdapter {
   private db: any = null;
@@ -326,7 +465,7 @@ class SqliteAdapter implements DbAdapter {
       booking.floor,
       booking.room,
       booking.bed,
-      booking.cancel_code,
+      booking.cancel_code || "",
       booking.created_at
     );
     return booking;
@@ -425,13 +564,23 @@ function mapBookingRow(row: any): Booking {
     floor: Number(row.floor),
     room: String(row.room),
     bed: Number(row.bed),
-    cancel_code: String(row.cancel_code),
+    cancel_code: String(row.cancel_code || ""),
     created_at: typeof row.created_at === "object" ? row.created_at.toISOString() : String(row.created_at),
   };
 }
 
-// Single instance adapter
-const adapter: DbAdapter = isPostgres ? new PostgresAdapter() : new SqliteAdapter();
+// Single instance adapter:
+// 1. If DATABASE_URL / POSTGRES_URL is present -> Postgres (Neon)
+// 2. If running on Vercel without Postgres -> ServerlessJsonAdapter (/tmp)
+// 3. Otherwise (local dev) -> SqliteAdapter
+let adapter: DbAdapter;
+if (isPostgres) {
+  adapter = new PostgresAdapter();
+} else if (process.env.VERCEL) {
+  adapter = new ServerlessJsonAdapter();
+} else {
+  adapter = new SqliteAdapter();
+}
 
 let isInitialized = false;
 
