@@ -1,69 +1,185 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect, useCallback } from "react";
+import { Header } from "@/components/Header";
+import { DateSelector } from "@/components/DateSelector";
+import { SlotGrid } from "@/components/SlotGrid";
+import { BookingModal } from "@/components/BookingModal";
+import { BookingSuccessModal } from "@/components/BookingSuccessModal";
+import { CancelModal } from "@/components/CancelModal";
+import { SlotStatus } from "@/lib/types";
+import { getSelectableDays, getIstanbulDate, formatDate } from "@/lib/date-utils";
+import { Loader2, RefreshCw, ShieldCheck, Info } from "lucide-react";
+
+export default function HomePage() {
+  const [days, setDays] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [slots, setSlots] = useState<SlotStatus[]>([]);
+  const [isDateClosed, setIsDateClosed] = useState(false);
+  const [dateCloseReason, setDateCloseReason] = useState("");
+  const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(true);
+
+  // Modals state
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [selectedSlotForBooking, setSelectedSlotForBooking] = useState<{
+    timeSlot: string;
+    machineNumber: number;
+  } | null>(null);
+
+  const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  // Initialize selectable days
+  useEffect(() => {
+    const selectable = getSelectableDays(7);
+    setDays(selectable);
+    if (selectable.length > 0) {
+      setSelectedDate(selectable[0].date);
+    } else {
+      const today = getIstanbulDate();
+      setSelectedDate(formatDate(today));
+    }
+  }, []);
+
+  // Fetch slots for selected date
+  const loadSlots = useCallback(async (date: string) => {
+    if (!date) return;
+    setIsLoadingSlots(true);
+    try {
+      const res = await fetch(`/api/slots?date=${date}`);
+      const data = await res.json();
+      if (data.success) {
+        setSlots(data.slots || []);
+        setIsDateClosed(data.isDateClosed || false);
+        setDateCloseReason(data.dateCloseReason || "");
+        setAvailableSlotsCount(data.availableSlotsCount || 0);
+      }
+    } catch (err) {
+      console.error("Failed to load slots:", err);
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedDate) {
+      loadSlots(selectedDate);
+    }
+  }, [selectedDate, loadSlots]);
+
+  const handleSelectSlot = (timeSlot: string, machineNumber: number) => {
+    setSelectedSlotForBooking({ timeSlot, machineNumber });
+    setIsBookingOpen(true);
+  };
+
+  const handleBookingSuccess = (booking: any) => {
+    setIsBookingOpen(false);
+    setConfirmedBooking(booking);
+    // Refresh slots
+    loadSlots(selectedDate);
+  };
+
+  const handleCancelSuccess = () => {
+    // Refresh slots
+    loadSlots(selectedDate);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen flex flex-col bg-slate-100/70">
+      <Header onOpenCancelModal={() => setIsCancelModalOpen(true)} />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Hızlı Bilgilendirme Kartı */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/80 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-red-50 text-red-700 flex-shrink-0">
+              <Info className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                Nasıl Sıra Alınır?
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                1. Aşağıdaki takvimden günü seçin. &nbsp;•&nbsp; 
+                2. İstediğiniz saatteki boş çamaşır makinesine tıklayın. &nbsp;•&nbsp; 
+                3. Kat, Oda ve Yatak numaranızı seçerek sıranızı onaylayın.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => loadSlots(selectedDate)}
+            disabled={isLoadingSlots}
+            className="self-start md:self-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSlots ? "animate-spin" : ""}`} />
+            <span>Tabloyu Yenile</span>
+          </button>
+        </div>
+
+        {/* Gün Seçici */}
+        <DateSelector
+          days={days}
+          selectedDate={selectedDate}
+          onSelectDate={(d) => setSelectedDate(d)}
+          availableCount={availableSlotsCount}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        {/* Slot Tablosu veya Yükleniyor Göstergesi */}
+        {isLoadingSlots ? (
+          <div className="bg-white rounded-2xl p-16 shadow-xs border border-slate-200 flex flex-col items-center justify-center text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-red-600 mb-2" />
+            <span className="text-xs font-semibold">Müsaitlik durumu yükleniyor...</span>
+          </div>
+        ) : (
+          <SlotGrid
+            slots={slots}
+            selectedDate={selectedDate}
+            isDateClosed={isDateClosed}
+            dateCloseReason={dateCloseReason}
+            onSelectSlot={handleSelectSlot}
+          />
+        )}
       </main>
+
+      {/* Footer / KVKK & Bilgilendirme */}
+      <footer className="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-slate-700 font-semibold">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Kişisel Veri Güvenliği: Ad, Soyad, TC veya Telefon verisi tutulmaz.</span>
+          </div>
+          <div>
+            T.C. Gençlik ve Spor Bakanlığı KYK Yurdu Çamaşırhane Hizmeti
+          </div>
+        </div>
+      </footer>
+
+      {/* Modals */}
+      {selectedSlotForBooking && (
+        <BookingModal
+          isOpen={isBookingOpen}
+          onClose={() => setIsBookingOpen(false)}
+          selectedDate={selectedDate}
+          timeSlot={selectedSlotForBooking.timeSlot}
+          machineNumber={selectedSlotForBooking.machineNumber}
+          onSuccess={handleBookingSuccess}
+        />
+      )}
+
+      {confirmedBooking && (
+        <BookingSuccessModal
+          booking={confirmedBooking}
+          onClose={() => setConfirmedBooking(null)}
+        />
+      )}
+
+      <CancelModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        onSuccess={handleCancelSuccess}
+      />
     </div>
   );
 }
