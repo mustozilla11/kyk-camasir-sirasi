@@ -230,7 +230,7 @@ export function BookingModal({
             </div>
           </div>
 
-          {/* Gizlilik & Kural Hatırlatması */}
+          {/* Bilgilendirme */}
           <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200 text-[11px] text-amber-900 space-y-1">
             <div className="flex items-center gap-1.5 font-bold text-amber-950">
               <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
@@ -238,7 +238,6 @@ export function BookingModal({
             </div>
             <p>• <strong>Alınan sıra iptal edilemez.</strong> Lütfen gelebileceğiniz saati seçiniz.</p>
             <p>• Aynı yatak için 7 günde en fazla 2 sıra alınabilir.</p>
-            <p>• Sistemde ad, soyad, telefon veya TC bilgisi tutulmaz.</p>
           </div>
 
           {/* Aksiyon Butonları */}

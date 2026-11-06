@@ -8,7 +8,7 @@ import { BookingModal } from "@/components/BookingModal";
 import { BookingSuccessModal } from "@/components/BookingSuccessModal";
 import { SlotStatus } from "@/lib/types";
 import { getSelectableDays, getIstanbulDate, formatDate } from "@/lib/date-utils";
-import { Loader2, RefreshCw, ShieldCheck, Info } from "lucide-react";
+import { Loader2, RefreshCw, Info } from "lucide-react";
 
 export default function HomePage() {
   const [days, setDays] = useState<any[]>([]);
@@ -135,15 +135,14 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Footer / KVKK & Bilgilendirme */}
+      {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-slate-700 font-semibold">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Kişisel Veri Güvenliği: Ad, Soyad, TC veya Telefon verisi tutulmaz.</span>
-          </div>
-          <div>
+          <div className="font-semibold text-slate-700">
             T.C. Gençlik ve Spor Bakanlığı KYK Yurdu Çamaşırhane Hizmeti
+          </div>
+          <div className="text-slate-400">
+            8 Çamaşır Makinesi • 13:30 - 21:30
           </div>
         </div>
       </footer>

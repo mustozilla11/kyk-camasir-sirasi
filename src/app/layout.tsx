@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "GSB KYK Yurdu Çamaşır Sırası Sistemi",
-  description: "Öğrenciler için adil, güvenli ve kişisel veri gerektirmeyen çamaşır makinesi sıra atama sistemi.",
+  description: "GSB KYK Yurdu çamaşırhane sıra ve randevu sistemi.",
 };
 
 export default function RootLayout({

@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Sparkles, ShieldCheck, Clock, KeyRound, Stethoscope } from "lucide-react";
+import { Sparkles, Clock, KeyRound, Stethoscope } from "lucide-react";
 
 export function Header() {
   return (
@@ -18,11 +18,8 @@ export function Header() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider bg-red-950/60 px-2 py-0.5 rounded text-red-200 border border-red-500/30">
+                <span className="text-xs font-bold uppercase tracking-wider bg-red-950/60 px-2.5 py-0.5 rounded text-red-200 border border-red-500/30">
                   GSB KYK Yurdu
-                </span>
-                <span className="text-xs bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Sıfır Kişisel Veri
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight mt-0.5">
