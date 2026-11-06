@@ -133,11 +133,11 @@ export function BookingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div className="bg-white w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Başlık */}
         <div
-          className={`text-white px-6 py-4 flex items-center justify-between ${
+          className={`text-white px-5 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between flex-shrink-0 ${
             isHealthInternMachine
               ? "bg-gradient-to-r from-cyan-700 to-blue-800"
               : "bg-gradient-to-r from-red-700 to-red-800"
@@ -200,7 +200,7 @@ export function BookingModal({
         {/* ADIM 1: KAT, ODA VE YATAK SEÇİM EKRANI                         */}
         {/* ------------------------------------------------------------- */}
         {step === "input" && (
-          <form onSubmit={handleProceedToConfirm} className="p-6 space-y-4">
+          <form onSubmit={handleProceedToConfirm} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
             {/* Stajyer & Sağlık Özel Uyarısı */}
             {isHealthInternMachine && (
               <div className="bg-cyan-50 border border-cyan-200 p-3 rounded-xl text-xs text-cyan-950 flex items-start gap-2">
@@ -304,7 +304,7 @@ export function BookingModal({
         {/* ADIM 2: BİLGİ VE EMİN MİSİNİZ ONAY EKRANI                     */}
         {/* ------------------------------------------------------------- */}
         {step === "confirm" && (
-          <div className="p-6 space-y-4 animate-in fade-in">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 animate-in fade-in">
             {/* Özet Kartı */}
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2.5 text-xs">
               <div className="font-bold text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200/80 pb-1 flex items-center justify-between">
