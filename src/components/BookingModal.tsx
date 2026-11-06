@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, ShieldAlert, Check, Loader2, Sparkles, Stethoscope, AlertCircle } from "lucide-react";
+import {
+  X,
+  ShieldAlert,
+  Check,
+  Loader2,
+  Stethoscope,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  HelpCircle,
+} from "lucide-react";
 import { APP_CONFIG } from "@/lib/config";
 import { formatTurkishDate } from "@/lib/date-utils";
 
@@ -22,9 +32,11 @@ export function BookingModal({
   machineNumber,
   onSuccess,
 }: BookingModalProps) {
+  const [step, setStep] = useState<"input" | "confirm">("input");
   const [floor, setFloor] = useState<number>(2);
   const [room, setRoom] = useState<string>("2116");
   const [bed, setBed] = useState<number>(1);
+  const [isHealthConfirmed, setIsHealthConfirmed] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -41,24 +53,40 @@ export function BookingModal({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 1. Adım: Giriş doğrulaması ve onay ekranına geçiş
+  const handleProceedToConfirm = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setErrorMessage(null);
 
     const cleanRoom = room.trim().toUpperCase();
 
     if (!cleanRoom) {
       setErrorMessage("Lütfen oda numaranızı girin.");
-      setIsLoading(false);
       return;
     }
 
     if (!cleanRoom.startsWith(String(floor))) {
-      setErrorMessage(`${floor}. kat için oda numaranız ${floor} ile başlamalıdır (Örn: ${floor}116).`);
-      setIsLoading(false);
+      setErrorMessage(
+        `${floor}. kat için oda numaranız ${floor} ile başlamalıdır (Örn: ${floor}116).`
+      );
       return;
     }
+
+    // Onay adımına geç
+    setStep("confirm");
+  };
+
+  // 2. Adım: Kesinleştirme ve API isteği
+  const handleFinalSubmit = async () => {
+    if (isHealthInternMachine && !isHealthConfirmed) {
+      setErrorMessage("Lütfen sağlık öğrencisi veya stajyer olduğunuzu onaylayınız.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    const cleanRoom = room.trim().toUpperCase();
 
     try {
       const res = await fetch("/api/bookings", {
@@ -105,7 +133,7 @@ export function BookingModal({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-200">
-                Sıra Alma Onayı
+                {step === "input" ? "1. Adım: Bilgiler" : "2. Adım: Onay & Kesinleştirme"}
               </span>
               {isHealthInternMachine && (
                 <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded font-bold">
@@ -113,7 +141,9 @@ export function BookingModal({
                 </span>
               )}
             </div>
-            <h3 className="text-lg font-extrabold">Çamaşır Sırası Al</h3>
+            <h3 className="text-lg font-extrabold">
+              {step === "input" ? "Çamaşır Sırası Al" : "Emin Misiniz?"}
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -145,134 +175,239 @@ export function BookingModal({
           </div>
         </div>
 
-        {/* Stajyer & Sağlık Özel Uyarısı */}
-        {isHealthInternMachine && (
-          <div className="bg-cyan-50 border-b border-cyan-200 px-6 py-2.5 text-xs text-cyan-950 flex items-start gap-2">
-            <Stethoscope className="w-4 h-4 text-cyan-700 flex-shrink-0 mt-0.5" />
-            <div className="text-[11px] leading-snug">
-              <span className="font-bold text-cyan-900">Stajyer / Sağlık Makinesi: </span>
-              Bu makine sağlık öğrencilerine ve stajyerlere ayrılmıştır. Çamaşır tesliminde 
-              <strong> yurt görevlisi öğrenci/staj kimliğinizi kontrol edecektir.</strong>
-            </div>
+        {/* Hata Mesajı Alanı */}
+        {errorMessage && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>{errorMessage}</div>
           </div>
         )}
 
-        {/* Form Alanı */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errorMessage && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <div>{errorMessage}</div>
+        {/* ------------------------------------------------------------- */}
+        {/* ADIM 1: KAT, ODA VE YATAK SEÇİM EKRANI                         */}
+        {/* ------------------------------------------------------------- */}
+        {step === "input" && (
+          <form onSubmit={handleProceedToConfirm} className="p-6 space-y-4">
+            {/* Stajyer & Sağlık Özel Uyarısı */}
+            {isHealthInternMachine && (
+              <div className="bg-cyan-50 border border-cyan-200 p-3 rounded-xl text-xs text-cyan-950 flex items-start gap-2">
+                <Stethoscope className="w-4 h-4 text-cyan-700 flex-shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-snug">
+                  <span className="font-bold text-cyan-900">Stajyer / Sağlık Makinesi: </span>
+                  Bu makine (#7 ve #8) sağlık öğrencilerine ve stajyerlere ayrılmıştır.
+                </div>
+              </div>
+            )}
+
+            {/* Kat Seçimi */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Kat Seçimi
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {APP_CONFIG.floors.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => handleFloorChange(f)}
+                    className={`py-2 px-3 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
+                      floor === f
+                        ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {f}. Kat
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {/* Kat Seçimi */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Kat Seçimi
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {APP_CONFIG.floors.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => handleFloorChange(f)}
-                  className={`py-2 px-3 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
-                    floor === f
-                      ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  {f}. Kat
-                </button>
-              ))}
+            {/* Oda Numarası */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Oda Numarası
+              </label>
+              <input
+                type="text"
+                value={room}
+                onChange={(e) => setRoom(e.target.value)}
+                placeholder={`Örn: ${floor}116, ${floor}105`}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-600 transition-all uppercase"
+                required
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                {floor}. kat için oda numaranız {floor} ile başlamalıdır.
+              </span>
             </div>
-          </div>
 
-          {/* Oda Numarası */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Oda Numarası
-            </label>
-            <input
-              type="text"
-              value={room}
-              onChange={(e) => setRoom(e.target.value)}
-              placeholder={`Örn: ${floor}116, ${floor}105`}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-600 transition-all"
-              required
-            />
-            <span className="text-[11px] text-slate-400 mt-1 block">
-              {floor}. kat için oda numaranız {floor} ile başlamalıdır.
-            </span>
-          </div>
-
-          {/* Yatak Numarası */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Yatak Numarası (Odadaki 1-5)
-            </label>
-            <div className="grid grid-cols-5 gap-2">
-              {APP_CONFIG.bedsPerRoom.map((b) => (
-                <button
-                  key={b}
-                  type="button"
-                  onClick={() => setBed(b)}
-                  className={`py-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
-                    bed === b
-                      ? "bg-red-700 text-white border-red-700 shadow-xs scale-105"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  Yatak {b}
-                </button>
-              ))}
+            {/* Yatak Numarası */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Yatak Numarası (Odadaki 1-5)
+              </label>
+              <div className="grid grid-cols-5 gap-2">
+                {APP_CONFIG.bedsPerRoom.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setBed(b)}
+                    className={`py-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
+                      bed === b
+                        ? "bg-red-700 text-white border-red-700 shadow-xs scale-105"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    Yatak {b}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Bilgilendirme */}
-          <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200 text-[11px] text-amber-900 space-y-1">
-            <div className="flex items-center gap-1.5 font-bold text-amber-950">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-              <span>Önemli Bilgilendirme:</span>
+            {/* Aksiyon Butonları */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-1/3 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="submit"
+                className={`w-2/3 py-2.5 rounded-xl text-white font-bold text-xs tracking-wide shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${
+                  isHealthInternMachine
+                    ? "bg-cyan-700 hover:bg-cyan-800 shadow-cyan-700/20"
+                    : "bg-red-700 hover:bg-red-800 shadow-red-700/20"
+                }`}
+              >
+                <span>Devam Et</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
-            <p>• <strong>Alınan sıra iptal edilemez.</strong> Lütfen gelebileceğiniz saati seçiniz.</p>
-            <p>• Aynı yatak için 7 günde en fazla 2 sıra alınabilir.</p>
-          </div>
+          </form>
+        )}
 
-          {/* Aksiyon Butonları */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="w-1/3 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              Vazgeç
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-2/3 py-2.5 rounded-xl text-white font-bold text-xs tracking-wide shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer ${
-                isHealthInternMachine
-                  ? "bg-cyan-700 hover:bg-cyan-800 shadow-cyan-700/20"
-                  : "bg-red-700 hover:bg-red-800 shadow-red-700/20"
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Kaydediliyor...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Sırayı Kesinleştir</span>
-                </>
+        {/* ------------------------------------------------------------- */}
+        {/* ADIM 2: BİLGİ VE EMİN MİSİNİZ ONAY EKRANI                     */}
+        {/* ------------------------------------------------------------- */}
+        {step === "confirm" && (
+          <div className="p-6 space-y-4 animate-in fade-in">
+            {/* Özet Kartı */}
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2.5 text-xs">
+              <div className="font-bold text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200/80 pb-1 flex items-center justify-between">
+                <span>Seçilen Sıra Bilgisi</span>
+                <span className="font-black text-slate-900">
+                  {isHealthInternMachine ? "Stajyer/Sağlık" : "Genel"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-slate-700">
+                <div>
+                  <span className="text-slate-400 text-[10px] block">TARİH</span>
+                  <span className="font-bold">{formatTurkishDate(selectedDate)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">SAAT</span>
+                  <span className="font-bold">{timeSlot}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">MAKİNE</span>
+                  <span className="font-extrabold text-red-700">Makine #{machineNumber}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">ODA VE YATAK</span>
+                  <span className="font-extrabold text-slate-900">
+                    Oda {room} — Yatak {bed}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* SAĞLIK VE STAJYER ÖĞRENCİ EKSTRA SORUSU */}
+            {isHealthInternMachine && (
+              <div className="bg-cyan-50/90 border-2 border-cyan-400 p-4 rounded-xl text-xs space-y-2.5">
+                <div className="flex items-center gap-2 text-cyan-950 font-extrabold text-sm">
+                  <Stethoscope className="w-5 h-5 text-cyan-700 flex-shrink-0" />
+                  <span>Sağlık Öğrencisi veya Stajyer misiniz?</span>
+                </div>
+                <p className="text-cyan-900 text-xs leading-relaxed">
+                  Makine #{machineNumber} yalnızca sağlık öğrencilerine ve stajyerlere tahsis edilmiştir. 
+                  Çamaşır tesliminde <strong>yurt görevlisi öğrenci/staj kimliğinizi kontrol edecektir.</strong>
+                </p>
+                <label className="flex items-start gap-2.5 pt-1.5 cursor-pointer select-none bg-white p-2.5 rounded-lg border border-cyan-200">
+                  <input
+                    type="checkbox"
+                    checked={isHealthConfirmed}
+                    onChange={(e) => {
+                      setIsHealthConfirmed(e.target.checked);
+                      setErrorMessage(null);
+                    }}
+                    className="w-4 h-4 mt-0.5 text-cyan-700 rounded border-cyan-300 focus:ring-cyan-500 cursor-pointer"
+                  />
+                  <span className="font-bold text-cyan-950 text-xs leading-snug">
+                    Evet, Sağlık Öğrencisiyim / Stajyerim. Görevliye kimliğimi göstereceğimi onaylıyorum.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* EMİN MİSİNİZ UYARISI */}
+            <div className="bg-amber-50 rounded-xl p-3.5 border border-amber-200 text-xs text-amber-900 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-950 text-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                <span>Sırayı almak istediğinize emin misiniz?</span>
+              </div>
+              <p className="text-[11px] leading-relaxed pt-1">
+                • <strong>Alınan çamaşır sırası iptal edilemez.</strong>
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                • Seçtiğiniz saatte çamaşırhanede bulunamayacaksanız lütfen sırayı almayınız.
+              </p>
+              {isHealthInternMachine && (
+                <p className="text-[11px] leading-relaxed font-semibold text-cyan-950">
+                  • Sağlık öğrencisi değilseniz çamaşırınız görevli tarafından teslim alınmayacaktır.
+                </p>
               )}
-            </button>
+            </div>
+
+            {/* Onay Aksiyon Butonları */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("input");
+                  setErrorMessage(null);
+                }}
+                disabled={isLoading}
+                className="w-1/3 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-600 hover:bg-slate-100 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Düzenle</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={isLoading || (isHealthInternMachine && !isHealthConfirmed)}
+                className={`w-2/3 py-2.5 rounded-xl text-white font-bold text-xs tracking-wide shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer ${
+                  isHealthInternMachine
+                    ? "bg-cyan-700 hover:bg-cyan-800 shadow-cyan-700/20"
+                    : "bg-red-700 hover:bg-red-800 shadow-red-700/20"
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Kaydediliyor...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Evet, Sıramı Kesinleştir</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );
