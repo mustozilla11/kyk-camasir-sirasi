@@ -37,6 +37,12 @@ export default function AdminPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  // Yurt Şifresi Yönetim State
+  const [currentYurtPin, setCurrentYurtPin] = useState<string>("KYK2026");
+  const [newYurtPin, setNewYurtPin] = useState<string>("");
+  const [suggestedPin, setSuggestedPin] = useState<string>("");
+  const [isUpdatingPin, setIsUpdatingPin] = useState<boolean>(false);
+
   // Set today's date on mount
   useEffect(() => {
     setSelectedDate(formatDate(getIstanbulDate()));
@@ -61,15 +67,17 @@ export default function AdminPage() {
   const loadAdminData = useCallback(async () => {
     setIsLoadingData(true);
     try {
-      const [slotsRes, bookingsRes, maintRes] = await Promise.all([
+      const [slotsRes, bookingsRes, maintRes, settingsRes] = await Promise.all([
         fetch(`/api/slots?date=${selectedDate}`),
         fetch(`/api/admin/bookings?date=${selectedDate}&query=${encodeURIComponent(searchQuery)}`),
         fetch("/api/admin/maintenance"),
+        fetch("/api/admin/settings"),
       ]);
 
       const slotsData = await slotsRes.json();
       const bookingsData = await bookingsRes.json();
       const maintData = await maintRes.json();
+      const settingsData = await settingsRes.json();
 
       if (slotsData.success) {
         setSlots(slotsData.slots || []);
@@ -79,6 +87,10 @@ export default function AdminPage() {
       }
       if (maintData.success) {
         setMaintenances(maintData.maintenances || []);
+      }
+      if (settingsData.success) {
+        setCurrentYurtPin(settingsData.yurtPin || "KYK2026");
+        setSuggestedPin(settingsData.suggestedPin || "");
       }
     } catch (err) {
       console.error(err);
@@ -175,6 +187,35 @@ export default function AdminPage() {
       loadAdminData();
     } catch (err) {
       alert("Hata oluştu.");
+    }
+  };
+
+  // Yurt şifresi güncelleme handler
+  const handleUpdateYurtPin = async (pinToSet?: string) => {
+    const targetPin = (pinToSet || newYurtPin).trim().toUpperCase();
+    if (!targetPin || targetPin.length < 3) {
+      alert("Yurt şifresi en az 3 karakter olmalıdır.");
+      return;
+    }
+    setIsUpdatingPin(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ yurtPin: targetPin }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentYurtPin(data.yurtPin);
+        setNewYurtPin("");
+        showSuccessBadge(`Yurt şifresi başarıyla "${data.yurtPin}" olarak güncellendi! Panoya asabilirsiniz.`);
+      } else {
+        alert(data.error || "Şifre güncellenemedi.");
+      }
+    } catch (e) {
+      alert("Bağlantı hatası oluştu.");
+    } finally {
+      setIsUpdatingPin(false);
     }
   };
 
@@ -597,6 +638,68 @@ export default function AdminPage() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Aylık Yurt Şifresi Yönetimi (Dışarıdan Sıra Almayı Önleme) */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-amber-600" />
+                  <span>Aylık Yurt Şifresi (Dışarıdan Giriş & Troll Koruması)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Yurtta kalmayan yabancıların internetten sıra almasını önler. Şifreyi her ay değiştirip yurt panosuna asabilirsiniz.
+                </p>
+              </div>
+
+              {/* Güncel Şifre Rozeti */}
+              <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200/80 px-3.5 py-2 rounded-xl">
+                <span className="text-[11px] font-bold text-amber-900 uppercase">Aktif Şifre:</span>
+                <span className="font-black text-amber-950 text-base tracking-wider bg-white px-2.5 py-0.5 rounded-lg border border-amber-300 shadow-xs">
+                  {currentYurtPin}
+                </span>
+              </div>
+            </div>
+
+            {/* Yeni Şifre Belirleme Alanı */}
+            <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={newYurtPin}
+                  onChange={(e) => setNewYurtPin(e.target.value.toUpperCase())}
+                  placeholder="Yeni yurt şifresi yazın (örn: KYK2026, YURT74)..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-bold tracking-wider uppercase text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleUpdateYurtPin()}
+                disabled={isUpdatingPin || !newYurtPin.trim()}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                {isUpdatingPin ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                <span>Şifreyi Değiştir</span>
+              </button>
+
+              {suggestedPin && suggestedPin !== currentYurtPin && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateYurtPin(suggestedPin)}
+                  disabled={isUpdatingPin}
+                  className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-xs rounded-xl border border-amber-300 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  title="Tek tıkla bu ayın şifresini ata"
+                >
+                  <span>📅 Bu Ayın Kodu Yap ({suggestedPin})</span>
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400 mt-2">
+              * Öğrenciler şifreyi ilk sıra alırken bir kez girer ve telefonları hatırlar. Siz şifreyi güncellediğinizde eski şifreyle dışarıdan kimse sıra alamaz.
+            </p>
           </div>
 
           {/* Görevli Detay Tablosu (Oda ve Yatak Numaraları Görünür) */}

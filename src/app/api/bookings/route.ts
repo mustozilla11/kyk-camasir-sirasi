@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getYurtPin } from "@/lib/db";
 import { APP_CONFIG } from "@/lib/config";
 import {
   getIstanbulDate,
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       floor,
       room,
       bed,
+      yurtPin,
       turnstileToken,
     } = body;
 
@@ -65,6 +66,20 @@ export async function POST(request: NextRequest) {
     if (!isBotValid) {
       return NextResponse.json(
         { success: false, error: "Güvenlik doğrulaması (Bot koruması) başarısız oldu." },
+        { status: 400 }
+      );
+    }
+
+    // 2. Yurt şifresi doğrulaması (Dışarıdan yabancıların sıra almasını engeller)
+    const expectedPin = await getYurtPin();
+    const cleanYurtPin = String(yurtPin || "").trim().toUpperCase();
+
+    if (!cleanYurtPin || cleanYurtPin !== expectedPin.toUpperCase()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Yurt şifresi hatalı veya güncel değil! Lütfen yurt panosundaki güncel şifreyi giriniz.",
+        },
         { status: 400 }
       );
     }

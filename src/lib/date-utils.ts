@@ -87,8 +87,9 @@ export function getSelectableDays(advanceDays = APP_CONFIG.maxAdvanceDays): Arra
 
 /**
  * Checks if a time slot has already passed for a given date.
- * Allows booking ongoing slots as long as there is enough time left to wash (up to 20 mins before slot ends).
- * E.g. For "18:30 - 19:30", student can book at 18:30, 18:45, up until 19:10!
+ * Allows booking ongoing slots up to 20 minutes after the slot start time.
+ * E.g. For "18:30 - 19:30", student can book at 18:29, 18:30, 18:45, up until 18:50!
+ * (Since a washing cycle takes ~30 minutes, 18:50 booking finishes comfortably before 19:30).
  */
 export function isSlotPast(dateStr: string, timeSlot: string): boolean {
   const today = getIstanbulDate();
@@ -102,17 +103,17 @@ export function isSlotPast(dateStr: string, timeSlot: string): boolean {
     return false; // Future day
   }
 
-  // Same day: check based on slot end time minus 20 minutes buffer
+  // Same day: allow booking until 20 minutes after the slot start time (e.g. 18:30 -> 18:50)
   const parts = timeSlot.split("-");
-  const endPart = (parts[1] || parts[0]).trim(); // "19:30"
-  const [endHour, endMin] = endPart.split(":").map(Number);
+  const startPart = parts[0].trim(); // "18:30"
+  const [startHour, startMin] = startPart.split(":").map(Number);
 
-  // Cutoff is 20 minutes before the slot ends
-  let cutoffHour = endHour;
-  let cutoffMin = endMin - 20;
-  if (cutoffMin < 0) {
-    cutoffHour -= 1;
-    cutoffMin += 60;
+  // Cutoff is 20 minutes after slot start time (e.g. 18:30 -> 18:50)
+  let cutoffHour = startHour;
+  let cutoffMin = startMin + 20;
+  if (cutoffMin >= 60) {
+    cutoffHour += 1;
+    cutoffMin -= 60;
   }
 
   const currentHour = today.getHours();
@@ -122,6 +123,20 @@ export function isSlotPast(dateStr: string, timeSlot: string): boolean {
   if (currentHour === cutoffHour && currentMin >= cutoffMin) return true;
 
   return false;
+}
+
+/**
+ * Returns a recommended monthly dorm passcode based on Turkish month name.
+ * E.g. "KYK-KASIM", "KYK-ARALIK"
+ */
+export function getSuggestedMonthlyPin(): string {
+  const months = [
+    "OCAK", "SUBAT", "MART", "NISAN", "MAYIS", "HAZIRAN",
+    "TEMMUZ", "AGUSTOS", "EYLUL", "EKIM", "KASIM", "ARALIK"
+  ];
+  const now = getIstanbulDate();
+  const monthName = months[now.getMonth()];
+  return `KYK-${monthName}`;
 }
 
 /**

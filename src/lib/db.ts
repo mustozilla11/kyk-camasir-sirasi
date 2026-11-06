@@ -18,6 +18,8 @@ interface DbAdapter {
   removeMaintenance(type: "machine" | "date", target: string): Promise<void>;
   searchBookings(query: string, date?: string): Promise<Booking[]>;
   cleanupOldBookings(daysThreshold?: number): Promise<number>;
+  getSetting(key: string, defaultValue?: string): Promise<string>;
+  setSetting(key: string, value: string): Promise<void>;
 }
 
 // Check for Postgres (Neon / Vercel Postgres)
@@ -65,6 +67,14 @@ class PostgresAdapter implements DbAdapter {
         reason TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT unique_maintenance UNIQUE (type, target)
+      );
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS settings (
+        key VARCHAR(64) PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
 
@@ -213,6 +223,21 @@ class PostgresAdapter implements DbAdapter {
     `;
     return res.length;
   }
+
+  async getSetting(key: string, defaultValue = ""): Promise<string> {
+    const sql = await this.getSql();
+    const rows = await sql`SELECT value FROM settings WHERE key = ${key}`;
+    return rows.length > 0 ? rows[0].value : defaultValue;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    const sql = await this.getSql();
+    await sql`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES (${key}, ${value}, CURRENT_TIMESTAMP)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+    `;
+  }
 }
 
 // -------------------------------------------------------------
@@ -221,16 +246,24 @@ class PostgresAdapter implements DbAdapter {
 class ServerlessJsonAdapter implements DbAdapter {
   private filePath = path.join("/tmp", "kyk_store.json");
 
-  private readData(): { bookings: Booking[]; maintenances: Maintenance[] } {
+  private readData(): {
+    bookings: Booking[];
+    maintenances: Maintenance[];
+    settings?: Record<string, string>;
+  } {
     try {
       if (fs.existsSync(this.filePath)) {
         return JSON.parse(fs.readFileSync(this.filePath, "utf-8"));
       }
     } catch (e) {}
-    return { bookings: [], maintenances: [] };
+    return { bookings: [], maintenances: [], settings: {} };
   }
 
-  private writeData(data: { bookings: Booking[]; maintenances: Maintenance[] }) {
+  private writeData(data: {
+    bookings: Booking[];
+    maintenances: Maintenance[];
+    settings?: Record<string, string>;
+  }) {
     try {
       fs.writeFileSync(this.filePath, JSON.stringify(data), "utf-8");
     } catch (e) {
@@ -358,6 +391,21 @@ class ServerlessJsonAdapter implements DbAdapter {
     this.writeData(data);
     return initialLen - data.bookings.length;
   }
+
+  async getSetting(key: string, defaultValue = ""): Promise<string> {
+    const data = this.readData();
+    if (data.settings && key in data.settings) {
+      return data.settings[key];
+    }
+    return defaultValue;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    const data = this.readData();
+    if (!data.settings) data.settings = {};
+    data.settings[key] = value;
+    this.writeData(data);
+  }
 }
 
 // -------------------------------------------------------------
@@ -403,6 +451,12 @@ class SqliteAdapter implements DbAdapter {
         reason TEXT,
         created_at TEXT NOT NULL,
         UNIQUE (type, target)
+      );
+
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date);
@@ -553,6 +607,21 @@ class SqliteAdapter implements DbAdapter {
       .run(daysThreshold);
     return res.changes;
   }
+
+  async getSetting(key: string, defaultValue = ""): Promise<string> {
+    const db = this.getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
+    return row ? (row as any).value : defaultValue;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    const db = this.getDb();
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES (?, ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+    `).run(key, value);
+  }
 }
 
 function mapBookingRow(row: any): Booking {
@@ -595,4 +664,20 @@ export async function getDb(): Promise<DbAdapter> {
     }
   }
   return adapter;
+}
+
+/**
+ * Gets the current monthly Yurt Passcode. Defaults to "KYK2026".
+ */
+export async function getYurtPin(): Promise<string> {
+  const db = await getDb();
+  return await db.getSetting("yurt_pin", "KYK2026");
+}
+
+/**
+ * Sets the monthly Yurt Passcode.
+ */
+export async function setYurtPin(pin: string): Promise<void> {
+  const db = await getDb();
+  await db.setSetting("yurt_pin", pin.trim().toUpperCase());
 }

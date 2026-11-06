@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   ArrowRight,
   HelpCircle,
+  KeyRound,
 } from "lucide-react";
 import { APP_CONFIG } from "@/lib/config";
 import { formatTurkishDate } from "@/lib/date-utils";
@@ -36,11 +37,12 @@ export function BookingModal({
   const [floor, setFloor] = useState<number>(2);
   const [room, setRoom] = useState<string>("2116");
   const [bed, setBed] = useState<number>(1);
+  const [yurtPin, setYurtPin] = useState<string>("");
   const [isHealthConfirmed, setIsHealthConfirmed] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Cihazda kayıtlı oda/yatak bilgisi varsa otomatik doldur
+  // Cihazda kayıtlı oda/yatak ve yurt şifresi varsa otomatik doldur
   useEffect(() => {
     try {
       const saved = localStorage.getItem("kyk_saved_room");
@@ -49,6 +51,10 @@ export function BookingModal({
         if (parsed.floor) setFloor(Number(parsed.floor));
         if (parsed.room) setRoom(String(parsed.room));
         if (parsed.bed) setBed(Number(parsed.bed));
+      }
+      const savedPin = localStorage.getItem("kyk_yurt_pin");
+      if (savedPin) {
+        setYurtPin(savedPin);
       }
     } catch (e) {}
   }, []);
@@ -85,6 +91,12 @@ export function BookingModal({
       return;
     }
 
+    const cleanPin = yurtPin.trim().toUpperCase();
+    if (!cleanPin) {
+      setErrorMessage("Lütfen yurt panosunda asılı olan aylık yurt şifresini giriniz.");
+      return;
+    }
+
     // Onay adımına geç
     setStep("confirm");
   };
@@ -100,6 +112,7 @@ export function BookingModal({
     setErrorMessage(null);
 
     const cleanRoom = room.trim().toUpperCase();
+    const cleanPin = yurtPin.trim().toUpperCase();
 
     try {
       const res = await fetch("/api/bookings", {
@@ -112,6 +125,7 @@ export function BookingModal({
           floor,
           room: cleanRoom,
           bed,
+          yurtPin: cleanPin,
         }),
       });
 
@@ -122,6 +136,15 @@ export function BookingModal({
         setIsLoading(false);
         return;
       }
+
+      // Başarılı olduğunda oda/yatak ve yurt şifresini kaydet
+      try {
+        localStorage.setItem(
+          "kyk_saved_room",
+          JSON.stringify({ floor, room: cleanRoom, bed })
+        );
+        localStorage.setItem("kyk_yurt_pin", cleanPin);
+      } catch (e) {}
 
       setIsLoading(false);
       onSuccess(data.booking);
@@ -276,6 +299,28 @@ export function BookingModal({
               </div>
             </div>
 
+            {/* Aylık Yurt Şifresi */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                  Yurt Şifresi (Aylık Kod)
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">Panoda asılı şifre</span>
+              </label>
+              <input
+                type="text"
+                value={yurtPin}
+                onChange={(e) => setYurtPin(e.target.value)}
+                placeholder="Örn: KYK2026"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-extrabold tracking-wider text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-600 transition-all"
+                required
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                * Yurt dışından yabancıların sıra almasını önler. Bir kez girince telefonunuz hatırlar.
+              </span>
+            </div>
+
             {/* Aksiyon Butonları */}
             <div className="flex items-center gap-3 pt-2">
               <button
@@ -330,6 +375,12 @@ export function BookingModal({
                   <span className="text-slate-400 text-[10px] block">ODA VE YATAK</span>
                   <span className="font-extrabold text-slate-900">
                     Oda {room} — Yatak {bed}
+                  </span>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-slate-200 flex items-center justify-between">
+                  <span className="text-slate-400 text-[10px]">YURT ŞİFRESİ:</span>
+                  <span className="font-extrabold text-slate-800 tracking-wider text-[11px] bg-slate-200/70 px-2 py-0.5 rounded">
+                    {yurtPin.trim().toUpperCase()}
                   </span>
                 </div>
               </div>
